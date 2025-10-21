@@ -28,5 +28,19 @@ namespace SocialNetworkWeb.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+
+        [Route("Register")]
+        [HttpGet]
+        public IActionResult Register()
+        {
+            return View("Home/Register");
+        }
+
+        [Route("RegisterPart2")]
+        [HttpGet]
+        public IActionResult RegisterPart2(RegisterViewModel model)
+        {
+            return View("RegisterPart2", model);
+        }
     }
 }
