@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity;
+namespace SocialNetworkWeb.Models.Users
+{
 
 public class User : IdentityUser
 {
@@ -9,4 +11,5 @@ public class User : IdentityUser
     public string MiddleName { get; set; }
 
     public DateTime BirthDate { get; set; }
+}
 }
