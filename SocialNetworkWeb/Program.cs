@@ -1,7 +1,26 @@
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using SocialNetworkWeb.Data;
+using SocialNetworkWeb.Models.Users;
+
 var builder = WebApplication.CreateBuilder(args);
+
+string connection = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+builder.Services
+    .AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(connection))
+    .AddIdentity<User, IdentityRole>(opts => {
+        opts.Password.RequiredLength = 5;
+        opts.Password.RequireNonAlphanumeric = false;
+        opts.Password.RequireLowercase = false;
+        opts.Password.RequireUppercase = false;
+        opts.Password.RequireDigit = false;
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>();
 
 var app = builder.Build();
 
@@ -18,6 +37,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(

@@ -1,12 +1,22 @@
 using System.Diagnostics;
+using AutoMapper;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using SocialNetworkWeb.Models;
+using SocialNetworkWeb.Models.Users;
 
 namespace SocialNetworkWeb.Controllers
 {
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+
+        private IMapper _mapper;
+
+        private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
+
+
 
         public HomeController(ILogger<HomeController> logger)
         {
