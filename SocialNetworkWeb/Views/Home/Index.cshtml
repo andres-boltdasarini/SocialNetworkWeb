@@ -1,6 +1,4 @@
-﻿@{
-    ViewData["Title"] = "Главная";
-}
+﻿@model MainViewModel
 
 <div class="row">
     <div class="side">
@@ -11,13 +9,24 @@
     </div>
 
     <div class="main">
-        @if (Model?.LoginView != null)
-        {
-            <partial name="Login" model="Model.LoginView" />
-        }
+        <!-- Отладочная информация -->
+        <div style="background: #f8f9fa; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc;">
+            <strong>Debug Info:</strong> 
+            Step: @(Model?.RegisterView?.Step ?? 1) |
+            FirstName: @(Model?.RegisterView?.FirstName ?? "null") |
+            URL: @Context.Request.Path
+        </div>
+
         @if (Model?.RegisterView != null)
         {
-            <partial name="Register" model="Model.RegisterView" />
+            if (Model.RegisterView.Step == 1)
+            {
+                <partial name="~/Views/Home/Register.cshtml" model="Model.RegisterView" />
+            }
+            else if (Model.RegisterView.Step == 2)
+            {
+                <partial name="~/Views/Home/RegisterPart2.cshtml" model="Model.RegisterView" />
+            }
         }
     </div>
 </div>

@@ -1,0 +1,106 @@
+@model RegisterViewModel
+
+<!-- Отладочная информация для второй формы -->
+<div style="background: #ffe6e6; padding: 10px; margin-bottom: 10px; border: 1px solid red;">
+    <strong>Debug Form2:</strong> 
+    FirstName: @Model.FirstName | 
+    LastName: @Model.LastName |
+    Step: @Model.Step |
+    Email: @Model.EmailReg |
+    Login: @Model.Login
+</div>
+
+<div class="row">
+    <div class="col-md-6 offset-md-3">
+        <h2>Завершение регистрации - Шаг 2</h2>
+        <p>Заполните остальные данные:</p>
+        
+        <form method="post" action="@Url.Action("RegisterStep2", "Register")" id="registerForm2">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="All" class="text-danger" id="validationSummary"></div>
+
+            <!-- Скрытые поля для данных из первого шага -->
+            <input type="hidden" asp-for="FirstName" />
+            <input type="hidden" asp-for="LastName" />
+            <input type="hidden" asp-for="Year" />
+            <input type="hidden" asp-for="Month" />
+            <input type="hidden" asp-for="Date" />
+            <input type="hidden" asp-for="Step" value="2" />
+
+            <div class="form-group">
+                <label asp-for="EmailReg" class="control-label"></label>
+                <input asp-for="EmailReg" class="form-control" id="emailInput" />
+                <span asp-validation-for="EmailReg" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="Login" class="control-label"></label>
+                <input asp-for="Login" class="form-control" id="loginInput" />
+                <span asp-validation-for="Login" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PasswordReg" class="control-label"></label>
+                <input asp-for="PasswordReg" class="form-control" type="password" id="passwordInput" />
+                <span asp-validation-for="PasswordReg" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="PasswordConfirm" class="control-label"></label>
+                <input asp-for="PasswordConfirm" class="form-control" type="password" id="passwordConfirmInput" />
+                <span asp-validation-for="PasswordConfirm" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-success" id="submitButton">Зарегистрироваться</button>
+                <a href="@Url.Action("Index", "Home")" class="btn btn-secondary">Начать заново</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+@* <script src="https://ajax.aspnetcdn.com/ajax/jquery.validate/1.17.0/jquery.validate.min.js"></script>
+<script src="https://ajax.aspnetcdn.com/ajax/jquery.validation.unobtrusive/3.2.10/jquery.validate.unobtrusive.min.js"></script> *@
+
+<script>
+    // Отладочный скрипт
+    $(document).ready(function() {
+        console.log('RegisterPart2 loaded');
+        
+        // Логируем значения скрытых полей
+        console.log('Hidden fields:');
+        console.log('FirstName:', $('#FirstName').val());
+        console.log('LastName:', $('#LastName').val());
+        console.log('Year:', $('#Year').val());
+        console.log('Month:', $('#Month').val());
+        console.log('Date:', $('#Date').val());
+        
+        // Отслеживаем отправку формы
+        $('#registerForm2').on('submit', function(e) {
+            console.log('Form submitted');
+            console.log('Email:', $('#emailInput').val());
+            console.log('Login:', $('#loginInput').val());
+            console.log('Password:', $('#passwordInput').val());
+            console.log('PasswordConfirm:', $('#passwordConfirmInput').val());
+            
+            // Проверяем валидацию
+            var form = $(this);
+            if (!form.valid()) {
+                console.log('Form is not valid');
+                var errors = [];
+                form.find('.field-validation-error').each(function() {
+                    errors.push($(this).text());
+                });
+                console.log('Validation errors:', errors);
+            } else {
+                console.log('Form is valid');
+            }
+        });
+        
+        // Отслеживаем клик по кнопке
+        $('#submitButton').on('click', function() {
+            console.log('Submit button clicked');
+        });
+    });
+</script>
