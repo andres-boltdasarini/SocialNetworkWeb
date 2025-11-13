@@ -1,32 +1,62 @@
-﻿@model MainViewModel
+﻿@model SocialNetworkWeb.ViewModels.MainViewModel
 
-<div class="row">
-    <div class="side">
-        <div class="center">
-            Пользуйтесь нашей самой крутой соцсетью! Регистрируйтесь всего за 2 минуты, делитесь мыслями, находите новых друзей.
+@{
+    ViewData["Title"] = "Главная страница";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Добро пожаловать в SocialNetwork</h1>
+    
+    @if (Model.IsAuthenticated)
+    {
+        <div class="mt-5">
+            <h2>Привет, @Model.UserName!</h2>
+            <p>Рады видеть вас снова.</p>
+            <div class="mt-4">
+                <a href="@Url.Action("Profile", "User")" class="btn btn-primary me-2">Мой профиль</a>
+                <a href="@Url.Action("Search", "User")" class="btn btn-success me-2">Поиск друзей</a>
+                <form asp-controller="Account" asp-action="Logout" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-outline-secondary">Выйти</button>
+                </form>
+            </div>
         </div>
-        <img class="main-img" src="http://pngimg.com/uploads/husky/husky_PNG19.png" />
-    </div>
-
-    <div class="main">
-        <!-- Отладочная информация -->
-        <div style="background: #f8f9fa; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc;">
-            <strong>Debug Info:</strong> 
-            Step: @(Model?.RegisterView?.Step ?? 1) |
-            FirstName: @(Model?.RegisterView?.FirstName ?? "null") |
-            URL: @Context.Request.Path
+    }
+    else
+    {
+        <div class="mt-5">
+            <h2>Присоединяйтесь к нашему сообществу</h2>
+            <p>Зарегистрируйтесь или войдите в систему, чтобы начать общаться с друзьями.</p>
+            <div class="mt-4">
+                <a href="@Url.Action("Register", "Account")" class="btn btn-primary btn-lg me-3">Регистрация</a>
+                <a href="@Url.Action("Login", "Account")" class="btn btn-outline-secondary btn-lg">Вход</a>
+            </div>
         </div>
-
-        @if (Model?.RegisterView != null)
-        {
-            if (Model.RegisterView.Step == 1)
-            {
-                <partial name="~/Views/Home/Register.cshtml" model="Model.RegisterView" />
-            }
-            else if (Model.RegisterView.Step == 2)
-            {
-                <partial name="~/Views/Home/RegisterPart2.cshtml" model="Model.RegisterView" />
-            }
-        }
-    </div>
+        
+        <div class="row mt-5">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">👥 Найдите друзей</h5>
+                        <p class="card-text">Находите и добавляйте друзей в свою социальную сеть.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">💬 Общайтесь</h5>
+                        <p class="card-text">Обменивайтесь сообщениями и обновлениями с друзьями.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">📱 Будьте на связи</h5>
+                        <p class="card-text">Всегда оставайтесь на связи с вашим кругом общения.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>

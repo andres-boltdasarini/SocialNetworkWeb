@@ -1,40 +1,37 @@
-using System.Diagnostics;
-using AutoMapper;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using SocialNetworkWeb.Models;
-using SocialNetworkWeb.Models.Users;
+using System.Diagnostics;
+using SocialNetworkWeb.ViewModels;
 
 namespace SocialNetworkWeb.Controllers
 {
-public class HomeController : Controller
-{
-[HttpGet]
-public IActionResult Index(int? step = 1)
-{
-    var model = new MainViewModel();
-    
-    if (step == 2)
+    public class HomeController : Controller
     {
-        model.RegisterView = new RegisterViewModel
+        private readonly ILogger<HomeController> _logger;
+
+        public HomeController(ILogger<HomeController> logger)
         {
-            Step = 2,
-            FirstName = TempData["RegFirstName"]?.ToString() ?? "",
-            LastName = TempData["RegLastName"]?.ToString() ?? "",
-            Year = TempData["RegYear"] != null ? (int)TempData["RegYear"] : 0,
-            Month = TempData["RegMonth"] != null ? (int)TempData["RegMonth"] : 0,
-            Date = TempData["RegDate"] != null ? (int)TempData["RegDate"] : 0,
-            EmailReg = TempData["RegEmail"]?.ToString() ?? "",
-            Login = TempData["RegLogin"]?.ToString() ?? ""
-        };
-        TempData.Keep();
+            _logger = logger;
+        }
+
+        public IActionResult Index()
+        {
+            var model = new MainViewModel
+            {
+                IsAuthenticated = User.Identity.IsAuthenticated,
+                UserName = User.Identity.Name
+            };
+            return View(model);
+        }
+
+        public IActionResult Privacy()
+        {
+            return View();
+        }
+
+        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        public IActionResult Error()
+        {
+            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
     }
-    else
-    {
-        model.RegisterView = new RegisterViewModel { Step = 1 };
-    }
-    
-    return View(model);
-}
-}
 }
