@@ -10,13 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+builder.Services.AddDefaultIdentity<ApplicationUser>(options =>
 {
-options.Password.RequireDigit = false;         // Не требовать цифры
-options.Password.RequireLowercase = false;     // Не требовать строчные
-options.Password.RequireUppercase = false;     // Не требовать заглавные
-options.Password.RequireNonAlphanumeric = false; // Не требовать спецсимволы
-options.Password.RequiredLength = 4;           // Минимум 4 символа
+    options.Password.RequireDigit = false;         // Не требовать цифры
+    options.Password.RequireLowercase = false;     // Не требовать строчные
+    options.Password.RequireUppercase = false;     // Не требовать заглавные
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequiredLength = 2;           // Минимум 2 символа
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders()
