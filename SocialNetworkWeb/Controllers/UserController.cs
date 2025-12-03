@@ -95,5 +95,38 @@ namespace SocialNetworkWeb.Controllers
 
             return RedirectToAction("Search", new { searchTerm = Request.Query["searchTerm"] });
         }
+
+        [HttpPost]
+        public async Task<IActionResult> AcceptFriendRequest(string friendId)
+        {
+            var currentUserId = _userManager.GetUserId(User);
+
+            Console.WriteLine($"=== AcceptFriendRequest Debug ===");
+            Console.WriteLine($"Current User ID: {currentUserId}");
+            Console.WriteLine($"Friend ID: {friendId}");
+
+            try
+            {
+                var result = await _userRepository.AcceptFriendRequestAsync(currentUserId, friendId);
+
+                if (result)
+                {
+                    Console.WriteLine($"Friend request accepted successfully");
+                    TempData["SuccessMessage"] = "Запрос на дружбу принят";
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to accept friend request");
+                    TempData["ErrorMessage"] = "Не удалось принять запрос на дружбу";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception: {ex.Message}");
+                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
+            }
+
+            return RedirectToAction("Search", new { searchTerm = Request.Query["searchTerm"] });
+        }
     }
 }
