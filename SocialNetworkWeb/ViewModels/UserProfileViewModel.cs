@@ -6,11 +6,10 @@ namespace SocialNetworkWeb.ViewModels
     {
         public string Id { get; set; }
 
-        [Required]
+        // Временно убираем [Required] для тестирования
         [Display(Name = "Имя")]
         public string FirstName { get; set; }
 
-        [Required]
         [Display(Name = "Фамилия")]
         public string LastName { get; set; }
 
