@@ -32,24 +32,6 @@ builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
 
-// Применяем миграции автоматически при запуске
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    try
-    {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        context.Database.Migrate(); // Применяем миграции
-        
-        // Инициализация данных
-        await SeedData.Initialize(services);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Ошибка при инициализации базы данных");
-    }
-}
 
 if (!app.Environment.IsDevelopment())
 {
