@@ -1,109 +1,110 @@
 @model UserProfileViewModel
+@{
+    ViewData["Title"] = "Мой профиль";
+}
 
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Мой профиль</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" />
-    <style>
-        body { padding: 20px; background: #f5f5f5; }
-        .form-container { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .debug-panel { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="form-container">
-                    <h2 class="mb-4">Мой профиль</h2>
+<h2>Мой профиль</h2>
 
-                    @if (TempData["SuccessMessage"] != null)
-                    {
-                        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
-                    }
-                    @if (TempData["ErrorMessage"] != null)
-                    {
-                        <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
-                    }
+@* @if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+} *@
 
-                    <form method="post">
-                        <!-- Скрытые поля -->
-                        <input type="hidden" asp-for="Id" />
-                        <input type="hidden" asp-for="UserName" />
+<form method="post" class="mb-4">
+    <input type="hidden" asp-for="Id" />
+    <input type="hidden" asp-for="UserName" />
 
-                        <div class="mb-3">
-                            <label class="form-label">Имя *</label>
-                            <input asp-for="FirstName" class="form-control" required />
-                            <span asp-validation-for="FirstName" class="text-danger"></span>
-                        </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Имя *</label>
+            <input asp-for="FirstName" class="form-control" required />
+            <span asp-validation-for="FirstName" class="text-danger"></span>
+        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Фамилия *</label>
-                            <input asp-for="LastName" class="form-control" required />
-                            <span asp-validation-for="LastName" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Email *</label>
-                            <input asp-for="Email" class="form-control" type="email" required />
-                            <span asp-validation-for="Email" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">Телефон</label>
-                            <input asp-for="PhoneNumber" class="form-control" />
-                            <span asp-validation-for="PhoneNumber" class="text-danger"></span>
-                        </div>
-
-                        <div class="mb-3">
-                            <label class="form-label">О себе</label>
-                            <textarea asp-for="Bio" class="form-control" rows="3"></textarea>
-                            <span asp-validation-for="Bio" class="text-danger"></span>
-                        </div>
-
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary">Сохранить</button>
-                            <a href="/User/Profile" class="btn btn-secondary">Обновить страницу</a>
-                            <button type="button" class="btn btn-warning" onclick="testUpdate()">Тест обновления</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="debug-panel">
-                    <h4>Текущие данные:</h4>
-                    <p><strong>ID:</strong> <code>@Model.Id</code></p>
-                    <p><strong>Имя пользователя:</strong> @Model.UserName</p>
-                    <p><strong>Email:</strong> @Model.Email</p>
-                    <p><strong>Имя:</strong> @Model.FirstName</p>
-                    <p><strong>Фамилия:</strong> @Model.LastName</p>
-
-                    <div class="mt-4">
-                        <h5>Тестирование:</h5>
-                        <button class="btn btn-info mb-2" onclick="simpleTest()">Простой тест (обновить только имя)</button>
-                        <div id="testResult" class="mt-2"></div>
-                    </div>
-                </div>
-            </div>
+        <div class="col-md-6 mb-3">
+            <label class="form-label">Фамилия *</label>
+            <input asp-for="LastName" class="form-control" required />
+            <span asp-validation-for="LastName" class="text-danger"></span>
         </div>
     </div>
 
-    <!-- jQuery для отладки -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <div class="mb-3">
+        <label class="form-label">Email *</label>
+        <input asp-for="Email" class="form-control" type="email" required />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
 
+    <div class="mb-3">
+        <label class="form-label">Телефон</label>
+        <input asp-for="PhoneNumber" class="form-control" />
+        <span asp-validation-for="PhoneNumber" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">О себе</label>
+        <textarea asp-for="Bio" class="form-control" rows="3"></textarea>
+        <span asp-validation-for="Bio" class="text-danger"></span>
+    </div>
+
+    <div class="d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+        <a href="/User/Profile" class="btn btn-secondary">Обновить страницу</a>
+        <button type="button" class="btn btn-outline-warning" onclick="testUpdate()">Тест обновления</button>
+    </div>
+</form>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Текущие данные профиля</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>ID:</strong> <code>@Model.Id</code></p>
+                <p><strong>Имя пользователя:</strong> @Model.UserName</p>
+                <p><strong>Email:</strong> @Model.Email</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Имя:</strong> @Model.FirstName</p>
+                <p><strong>Фамилия:</strong> @Model.LastName</p>
+                <p><strong>Телефон:</strong> @(string.IsNullOrEmpty(Model.PhoneNumber) ? "Не указан" : Model.PhoneNumber)</p>
+            </div>
+        </div>
+        
+        @if (!string.IsNullOrEmpty(Model.Bio))
+        {
+            <div class="mt-3">
+                <p><strong>О себе:</strong></p>
+                <p class="text-muted">@Model.Bio</p>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h5 class="mb-0">Тестирование API</h5>
+    </div>
+    <div class="card-body">
+        <button class="btn btn-info mb-2" onclick="simpleTest()">
+            Простой тест (обновить только имя)
+        </button>
+        <div id="testResult" class="mt-2"></div>
+    </div>
+</div>
+
+@section Scripts {
     <script>
         function testUpdate() {
-            // Просто логируем и отправляем форму
             console.log('Testing form submission...');
-            $('form').submit();
+            document.querySelector('form').submit();
         }
 
         function simpleTest() {
-            // AJAX запрос для тестирования обновления
             const testData = {
                 FirstName: 'Test_' + new Date().getTime(),
                 LastName: 'TestLastName',
@@ -126,8 +127,6 @@
                 document.getElementById('testResult').innerHTML =
                     `<div class="alert alert-info">${text}</div>`;
                 console.log('Test result:', text);
-
-                // Обновляем страницу через 2 секунды
                 setTimeout(() => location.reload(), 2000);
             })
             .catch(error => {
@@ -135,14 +134,5 @@
                     `<div class="alert alert-danger">Error: ${error}</div>`;
             });
         }
-
-        // Отладка формы
-        $('form').on('submit', function(e) {
-            console.log('Form submitting...');
-            console.log('FirstName:', this.FirstName.value);
-            console.log('Email:', this.Email.value);
-            return true; // Всегда разрешаем отправку
-        });
     </script>
-</body>
-</html>
+}
