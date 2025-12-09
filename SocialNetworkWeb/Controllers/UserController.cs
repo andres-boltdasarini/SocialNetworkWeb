@@ -29,51 +29,6 @@ namespace SocialNetworkWeb.Controllers
             _context = context;
         }
 
-        [HttpPost]
-        public async Task<IActionResult> TestUpdate([FromBody] SimpleUpdateModel model)
-        {
-            Console.WriteLine("=== TEST UPDATE ===");
-
-            try
-            {
-                var user = await _userManager.GetUserAsync(User);
-                if (user == null)
-                {
-                    return Content("ERROR: User not found");
-                }
-
-                Console.WriteLine($"Old FirstName: {user.FirstName}");
-                Console.WriteLine($"New FirstName: {model.FirstName}");
-
-                // Обновляем только FirstName для теста
-                user.FirstName = model.FirstName;
-
-                var result = await _userManager.UpdateAsync(user);
-
-                if (result.Succeeded)
-                {
-                    return Content($"SUCCESS: Updated FirstName to '{user.FirstName}' at {DateTime.Now:HH:mm:ss}");
-                }
-                else
-                {
-                    return Content($"ERROR: {string.Join(", ", result.Errors.Select(e => e.Description))}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception: {ex.Message}");
-                return Content($"EXCEPTION: {ex.Message}");
-            }
-        }
-
-        public class SimpleUpdateModel
-        {
-            public string FirstName { get; set; }
-            public string LastName { get; set; }
-            public string Email { get; set; }
-            public string PhoneNumber { get; set; }
-            public string Bio { get; set; }
-        }
 
         [HttpGet]
         public async Task<IActionResult> Profile()
