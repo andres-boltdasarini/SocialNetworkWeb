@@ -1,234 +1,290 @@
+// UserRepository.cs
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using AutoMapper;
+using System.Security.Claims;  // в†ђ Р”РћР‘РђР’Р¬РўР• Р­РўРћ!
 using SocialNetworkWeb.Data;
 using SocialNetworkWeb.Models;
 using SocialNetworkWeb.ViewModels;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace SocialNetworkWeb.Services
 {
     public class UserRepository : IUserRepository
     {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
 
-        public UserRepository(ApplicationDbContext context, IMapper mapper)
+        public UserRepository(
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager,
+            ApplicationDbContext context)
         {
+            _userManager = userManager;
+            _signInManager = signInManager;
             _context = context;
-            _mapper = mapper;
         }
 
-        public async Task<ApplicationUser> GetUserByIdAsync(string userId)
+        // === РќРћР’Р«Р• РњР•РўРћР”Р« ===
+        
+        public async Task<ApplicationUser?> GetCurrentUserAsync(ClaimsPrincipal user)
         {
-            return await _context.Users
-                .Include(u => u.Friends)
-                .ThenInclude(f => f.Friend)
-                .FirstOrDefaultAsync(u => u.Id == userId);
+            return await _userManager.GetUserAsync(user);
         }
-
-        public async Task<UserProfileViewModel> GetUserProfileAsync(string userId)
+        
+        public async Task<ApplicationUser?> FindByIdAsync(string userId)
         {
-            var user = await GetUserByIdAsync(userId);
-            return _mapper.Map<UserProfileViewModel>(user);
+            return await _userManager.FindByIdAsync(userId);
+        }
+        
+        public async Task RefreshSignInAsync(ApplicationUser user)
+        {
+            await _signInManager.RefreshSignInAsync(user);
+        }
+        
+        public async Task<bool> SaveUserWithEmailUpdateAsync(ApplicationUser user, string newEmail)
+        {
+            try
+            {
+                Console.WriteLine($"SaveUserWithEmailUpdateAsync: UserId={user.Id}, NewEmail={newEmail}");
+                
+                // 1. РЎРѕС…СЂР°РЅСЏРµРј РѕСЃРЅРѕРІРЅС‹Рµ РїРѕР»СЏ
+                var updateResult = await _userManager.UpdateAsync(user);
+                Console.WriteLine($"UpdateAsync result: {updateResult.Succeeded}");
+                
+                if (!updateResult.Succeeded)
+                {
+                    Console.WriteLine($"UpdateAsync errors: {string.Join(", ", updateResult.Errors.Select(e => e.Description))}");
+                    return false;
+                }
+                
+                // 2. РџСЂРѕРІРµСЂСЏРµРј, РЅСѓР¶РЅРѕ Р»Рё РѕР±РЅРѕРІР»СЏС‚СЊ email
+                var emailChanged = !string.IsNullOrEmpty(newEmail) && 
+                                  !string.Equals(user.Email, newEmail, StringComparison.OrdinalIgnoreCase);
+                
+                if (emailChanged)
+                {
+                    Console.WriteLine($"Email changed from '{user.Email}' to '{newEmail}'");
+                    
+                    // РћР±РЅРѕРІР»СЏРµРј Email
+                    var emailResult = await _userManager.SetEmailAsync(user, newEmail);
+                    Console.WriteLine($"SetEmailAsync result: {emailResult.Succeeded}");
+                    
+                    if (!emailResult.Succeeded)
+                    {
+                        Console.WriteLine($"SetEmailAsync errors: {string.Join(", ", emailResult.Errors.Select(e => e.Description))}");
+                        return false;
+                    }
+                    
+                    // РћР±РЅРѕРІР»СЏРµРј UserName
+                    var userNameResult = await _userManager.SetUserNameAsync(user, newEmail);
+                    Console.WriteLine($"SetUserNameAsync result: {userNameResult.Succeeded}");
+                    
+                    if (!userNameResult.Succeeded)
+                    {
+                        Console.WriteLine($"SetUserNameAsync errors (non-critical): {string.Join(", ", userNameResult.Errors.Select(e => e.Description))}");
+                    }
+                    
+                    // РћР±РЅРѕРІР»СЏРµРј Security Stamp
+                    await _userManager.UpdateSecurityStampAsync(user);
+                    
+                    // РЇРІРЅРѕРµ СЃРѕС…СЂР°РЅРµРЅРёРµ С‡РµСЂРµР· DbContext
+                    _context.Entry(user).State = EntityState.Modified;
+                    var rowsAffected = await _context.SaveChangesAsync();
+                    Console.WriteLine($"DbContext saved: {rowsAffected} rows affected");
+                }
+                
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in SaveUserWithEmailUpdateAsync: {ex.Message}");
+                Console.WriteLine($"StackTrace: {ex.StackTrace}");
+                return false;
+            }
         }
 
-        public async Task<bool> UpdateUserProfileAsync(string userId, UserProfileViewModel model)
+        // === РћРџР•Р РђР¦РР РЎ РџРћР›Р¬Р—РћР’РђРўР•Р›РЇРњР ===
+        
+        public async Task<ApplicationUser?> GetUserByIdAsync(string userId)
+        {
+            return await _userManager.FindByIdAsync(userId);
+        }
+
+        public async Task<bool> UpdateUserAsync(ApplicationUser user)
+        {
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> UpdateEmailAsync(string userId, string newEmail)
         {
             var user = await GetUserByIdAsync(userId);
             if (user == null) return false;
-
-            _mapper.Map(model, user);
-            _context.Users.Update(user);
-            return await _context.SaveChangesAsync() > 0;
+            
+            var result = await _userManager.SetEmailAsync(user, newEmail);
+            return result.Succeeded;
         }
 
-        public async Task<List<UserViewModel>> SearchUsersAsync(string searchTerm, string currentUserId)
+        public async Task<bool> UpdateUserNameAsync(string userId, string newUserName)
         {
-            IQueryable<ApplicationUser> query = _context.Users;
-
-            if (!string.IsNullOrWhiteSpace(searchTerm))
-            {
-                searchTerm = searchTerm.ToLower();
-                query = query.Where(u =>
-                    u.Id != currentUserId &&
-                    (u.FirstName.ToLower().Contains(searchTerm) ||
-                     u.LastName.ToLower().Contains(searchTerm) ||
-                     u.UserName.ToLower().Contains(searchTerm) ||
-                     u.Email.ToLower().Contains(searchTerm)));
-            }
-            else
-            {
-                query = query.Where(u => u.Id != currentUserId);
-            }
-
-            var users = await query.ToListAsync();
-            var result = new List<UserViewModel>();
-
-            foreach (var user in users)
-            {
-                // Получаем все возможные статусы
-                var friendship = await GetFriendshipStatusAsync(currentUserId, user.Id);
-
-                var userViewModel = new UserViewModel
-                {
-                    Id = user.Id,
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    UserName = user.UserName,
-                    IsFriend = friendship?.Status == FriendshipStatus.Accepted,
-                    FriendRequestSent = friendship?.Status == FriendshipStatus.Pending &&
-                                       friendship.UserId == currentUserId,
-                    // Новые свойства для лучшего отображения
-                    HasPendingRequestFromMe = friendship?.Status == FriendshipStatus.Pending &&
-                                             friendship.UserId == currentUserId,
-                    HasPendingRequestToMe = friendship?.Status == FriendshipStatus.Pending &&
-                                           friendship.FriendId == currentUserId,
-                    FriendshipStatus = friendship?.Status
-                };
-                result.Add(userViewModel);
-            }
-
-            return result;
+            var user = await GetUserByIdAsync(userId);
+            if (user == null) return false;
+            
+            var result = await _userManager.SetUserNameAsync(user, newUserName);
+            return result.Succeeded;
         }
 
-        // Новый метод для получения статуса дружбы
-        private async Task<Friendship?> GetFriendshipStatusAsync(string userId1, string userId2)
+        public async Task UpdateSecurityStampAsync(string userId)
         {
-            return await _context.Friendships
-                .FirstOrDefaultAsync(f =>
-                    (f.UserId == userId1 && f.FriendId == userId2) ||
-                    (f.UserId == userId2 && f.FriendId == userId1));
+            var user = await GetUserByIdAsync(userId);
+            if (user != null)
+            {
+                await _userManager.UpdateSecurityStampAsync(user);
+            }
         }
 
+        // === РџРћРРЎРљ РџРћР›Р¬Р—РћР’РђРўР•Р›Р•Р™ ===
+        
+        public async Task<IEnumerable<ApplicationUser>> SearchUsersAsync(
+            string searchTerm, 
+            string currentUserId)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return Enumerable.Empty<ApplicationUser>();
+
+            return await _context.Users
+                .Where(u => u.Id != currentUserId &&
+                           ((u.FirstName != null && u.FirstName.Contains(searchTerm)) ||
+                            (u.LastName != null && u.LastName.Contains(searchTerm)) ||
+                            (u.Email != null && u.Email.Contains(searchTerm))))
+                .Take(50)
+                .ToListAsync();
+        }
+
+        public async Task<List<UserViewModel>> SearchUsersWithFriendshipInfoAsync(
+            string searchTerm, 
+            string currentUserId)
+        {
+            if (string.IsNullOrWhiteSpace(searchTerm))
+                return new List<UserViewModel>();
+
+            // РџРѕР»СѓС‡Р°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»РµР№
+            var users = await SearchUsersAsync(searchTerm, currentUserId);
+            
+            // РџРѕР»СѓС‡Р°РµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РґСЂСѓР·СЊСЏС… С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
+            var friendships = await _context.Friendships
+                .Where(f => f.UserId == currentUserId || f.FriendId == currentUserId)
+                .ToListAsync();
+            
+            // РџСЂРµРѕР±СЂР°Р·СѓРµРј ApplicationUser РІ UserViewModel СЃ РёРЅС„РѕСЂРјР°С†РёРµР№ Рѕ РґСЂСѓР¶Р±Рµ
+            var userViewModels = users.Select(u => new UserViewModel
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                UserName = u.UserName,
+                
+                // РћРїСЂРµРґРµР»СЏРµРј СЃС‚Р°С‚СѓСЃ РґСЂСѓР¶Р±С‹
+                IsFriend = friendships.Any(f => 
+                    (f.UserId == currentUserId && f.FriendId == u.Id && f.Status == FriendshipStatus.Accepted) ||
+                    (f.UserId == u.Id && f.FriendId == currentUserId && f.Status == FriendshipStatus.Accepted)),
+                    
+                FriendRequestSent = friendships.Any(f => 
+                    f.UserId == currentUserId && f.FriendId == u.Id && f.Status == FriendshipStatus.Pending),
+                    
+                HasPendingRequestFromMe = friendships.Any(f => 
+                    f.UserId == currentUserId && f.FriendId == u.Id && f.Status == FriendshipStatus.Pending),
+                    
+                HasPendingRequestToMe = friendships.Any(f => 
+                    f.UserId == u.Id && f.FriendId == currentUserId && f.Status == FriendshipStatus.Pending),
+                    
+                FriendshipStatus = friendships
+                    .FirstOrDefault(f => 
+                        (f.UserId == currentUserId && f.FriendId == u.Id) ||
+                        (f.UserId == u.Id && f.FriendId == currentUserId))
+                    ?.Status
+            }).ToList();
+
+            return userViewModels;
+        }
+
+        // === РњР•РўРћР”Р« Р”Р›РЇ Р”Р РЈР—Р•Р™ ===
+        
         public async Task<bool> SendFriendRequestAsync(string fromUserId, string toUserId)
         {
-            if (fromUserId == toUserId) return false;
-
-            // Ищем существующую дружбу в ЛЮБОМ направлении
-            var existingFriendship = await _context.Friendships
-                .FirstOrDefaultAsync(f =>
-                    (f.UserId == fromUserId && f.FriendId == toUserId) ||
-                    (f.UserId == toUserId && f.FriendId == fromUserId));
-
-            if (existingFriendship != null)
+            try
             {
-                // Анализируем существующую дружбу
-                switch (existingFriendship.Status)
+                var existingRequest = await _context.Friendships
+                    .FirstOrDefaultAsync(f => 
+                        (f.UserId == fromUserId && f.FriendId == toUserId) ||
+                        (f.UserId == toUserId && f.FriendId == fromUserId));
+
+                if (existingRequest != null) return false;
+
+                var friendship = new Friendship
                 {
-                    case FriendshipStatus.Pending:
-                        // Если запрос уже отправлен
-                        if (existingFriendship.UserId == fromUserId &&
-                            existingFriendship.FriendId == toUserId)
-                        {
-                            return true; // Запрос уже отправлен
-                        }
-                        else if (existingFriendship.UserId == toUserId &&
-                                 existingFriendship.FriendId == fromUserId)
-                        {
-                            // Пользователь 2 хочет отправить запрос пользователю 1,
-                            // но пользователь 1 уже отправил запрос пользователю 2
-                            // В этом случае автоматически принимаем запрос
-                            existingFriendship.Status = FriendshipStatus.Accepted;
-                            _context.Friendships.Update(existingFriendship);
-                            return await _context.SaveChangesAsync() > 0;
-                        }
-                        break;
+                    UserId = fromUserId,
+                    FriendId = toUserId,
+                    Status = FriendshipStatus.Pending,
+                    FriendsSince = DateTime.UtcNow  // РСЃРїРѕР»СЊР·СѓРµРј FriendsSince РІРјРµСЃС‚Рѕ CreatedAt
+                };
 
-                    case FriendshipStatus.Accepted:
-                        // Уже друзья
-                        return true;
-
-                    case FriendshipStatus.Rejected:
-                        // Запрос был отклонен, обновляем статус
-                        // Меняем направление если нужно
-                        if (existingFriendship.UserId == toUserId &&
-                            existingFriendship.FriendId == fromUserId)
-                        {
-                            // Меняем местами User и Friend
-                            var temp = existingFriendship.UserId;
-                            existingFriendship.UserId = existingFriendship.FriendId;
-                            existingFriendship.FriendId = temp;
-                        }
-                        existingFriendship.Status = FriendshipStatus.Pending;
-                        _context.Friendships.Update(existingFriendship);
-                        return await _context.SaveChangesAsync() > 0;
-
-                    case FriendshipStatus.Blocked:
-                        // Заблокировано, нельзя отправить запрос
-                        return false;
-                }
-
+                _context.Friendships.Add(friendship);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in SendFriendRequestAsync: {ex.Message}");
                 return false;
             }
+        }
 
-            // Создаем новый запрос на дружбу
-            var friendship = new Friendship
+        public async Task<bool> RemoveFriendAsync(string currentUserId, string friendId)
+        {
+            try
             {
-                UserId = fromUserId,
-                FriendId = toUserId,
-                Status = FriendshipStatus.Pending,
-                FriendsSince = DateTime.UtcNow
-            };
+                var friendship = await _context.Friendships
+                    .FirstOrDefaultAsync(f =>
+                        (f.UserId == currentUserId && f.FriendId == friendId) ||
+                        (f.UserId == friendId && f.FriendId == currentUserId));
 
-            _context.Friendships.Add(friendship);
-            return await _context.SaveChangesAsync() > 0;
+                if (friendship == null) return false;
+
+                _context.Friendships.Remove(friendship);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in RemoveFriendAsync: {ex.Message}");
+                return false;
+            }
         }
 
-        public async Task<bool> AcceptFriendRequestAsync(string userId, string friendId)
+        public async Task<bool> AcceptFriendRequestAsync(string currentUserId, string friendId)
         {
-            var friendship = await _context.Friendships
-                .FirstOrDefaultAsync(f => f.UserId == friendId &&
-                                         f.FriendId == userId &&
-                                         f.Status == FriendshipStatus.Pending);
+            try
+            {
+                var friendship = await _context.Friendships
+                    .FirstOrDefaultAsync(f =>
+                        f.UserId == friendId && 
+                        f.FriendId == currentUserId && 
+                        f.Status == FriendshipStatus.Pending);
 
-            if (friendship == null) return false;
+                if (friendship == null) return false;
 
-            friendship.Status = FriendshipStatus.Accepted;
-            return await _context.SaveChangesAsync() > 0;
-        }
-
-        public async Task<bool> RemoveFriendAsync(string userId, string friendId)
-        {
-            var friendship = await _context.Friendships
-                .FirstOrDefaultAsync(f =>
-                    (f.UserId == userId && f.FriendId == friendId) ||
-                    (f.UserId == friendId && f.FriendId == userId));
-
-            if (friendship == null) return false;
-
-            _context.Friendships.Remove(friendship);
-            return await _context.SaveChangesAsync() > 0;
-        }
-
-        public async Task<List<ApplicationUser>> GetUserFriendsAsync(string userId)
-        {
-            var friendships = await _context.Friendships
-                .Where(f => (f.UserId == userId || f.FriendId == userId) &&
-                           f.Status == FriendshipStatus.Accepted)
-                .Include(f => f.User)
-                .Include(f => f.Friend)
-                .ToListAsync();
-
-            return friendships.Select(f => f.UserId == userId ? f.Friend : f.User).ToList();
-        }
-
-        public async Task<bool> IsFriendAsync(string userId, string friendId)
-        {
-            return await _context.Friendships
-                .AnyAsync(f =>
-                    ((f.UserId == userId && f.FriendId == friendId) ||
-                     (f.UserId == friendId && f.FriendId == userId)) &&
-                    f.Status == FriendshipStatus.Accepted);
-        }
-
-        public async Task<bool> HasPendingRequestAsync(string fromUserId, string toUserId)
-        {
-            return await _context.Friendships
-                .AnyAsync(f => f.UserId == fromUserId &&
-                              f.FriendId == toUserId &&
-                              f.Status == FriendshipStatus.Pending);
+                friendship.Status = FriendshipStatus.Accepted;
+                friendship.FriendsSince = DateTime.UtcNow;  // РћР±РЅРѕРІР»СЏРµРј FriendsSince
+                
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in AcceptFriendRequestAsync: {ex.Message}");
+                return false;
+            }
         }
     }
 }

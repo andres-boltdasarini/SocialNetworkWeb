@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SocialNetworkWeb.Data;
 using SocialNetworkWeb.Models;
 using SocialNetworkWeb.Services;
 using SocialNetworkWeb.ViewModels;
@@ -13,29 +11,23 @@ namespace SocialNetworkWeb.Controllers
     public class UserController : Controller
     {
         private readonly IUserRepository _userRepository;
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager; // Можно оставить для GetUserId
+        // ApplicationDbContext УБРАН!
 
         public UserController(
             IUserRepository userRepository,
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
-            ApplicationDbContext context)
+            UserManager<ApplicationUser> userManager)
         {
             _userRepository = userRepository;
             _userManager = userManager;
-            _signInManager = signInManager;
-            _context = context;
         }
-
 
         [HttpGet]
         public async Task<IActionResult> Profile()
         {
-            var userId = _userManager.GetUserId(User);
-            var user = await _userManager.FindByIdAsync(userId);
-
+            // Используем репозиторий вместо UserManager
+            var user = await _userRepository.GetCurrentUserAsync(User);
+            
             if (user == null)
             {
                 return NotFound();
@@ -69,7 +61,8 @@ namespace SocialNetworkWeb.Controllers
 
             try
             {
-                var user = await _userManager.GetUserAsync(User);
+                // Получаем пользователя через репозиторий
+                var user = await _userRepository.GetCurrentUserAsync(User);
                 if (user == null)
                 {
                     return NotFound();
@@ -78,71 +71,27 @@ namespace SocialNetworkWeb.Controllers
                 Console.WriteLine($"Before update: FirstName='{user.FirstName}', Email='{user.Email}'");
                 Console.WriteLine($"From form: FirstName='{model.FirstName}', Email='{model.Email}'");
 
-                // 1. Обновляем основные поля
+                // Обновляем поля
                 user.FirstName = model.FirstName?.Trim();
                 user.LastName = model.LastName?.Trim();
                 user.PhoneNumber = model.PhoneNumber?.Trim();
                 user.Bio = model.Bio?.Trim() ?? string.Empty;
 
-                // 2. Сохраняем основные поля
-                var updateResult = await _userManager.UpdateAsync(user);
-                Console.WriteLine($"UpdateAsync result: {updateResult.Succeeded}");
+                // ВСЁ сохраняем за один вызов через репозиторий
+                var saveResult = await _userRepository.SaveUserWithEmailUpdateAsync(user, model.Email?.Trim());
+                Console.WriteLine($"SaveUserWithEmailUpdateAsync result: {saveResult}");
 
-                if (!updateResult.Succeeded)
+                if (!saveResult)
                 {
-                    foreach (var error in updateResult.Errors)
-                    {
-                        ModelState.AddModelError("", error.Description);
-                        Console.WriteLine($"Error: {error.Description}");
-                    }
+                    ModelState.AddModelError("", "Не удалось обновить профиль");
                     return View(model);
                 }
 
-                // 3. Проверяем, изменился ли email
-                if (!string.Equals(user.Email, model.Email, StringComparison.OrdinalIgnoreCase))
-                {
-                    Console.WriteLine($"Email changed from '{user.Email}' to '{model.Email}'");
+                // Обновляем аутентификацию через репозиторий
+                await _userRepository.RefreshSignInAsync(user);
 
-                    // 3.1 Обновляем Email
-                    var emailResult = await _userManager.SetEmailAsync(user, model.Email?.Trim());
-                    Console.WriteLine($"SetEmailAsync result: {emailResult.Succeeded}");
-
-                    if (!emailResult.Succeeded)
-                    {
-                        foreach (var error in emailResult.Errors)
-                        {
-                            ModelState.AddModelError("", error.Description);
-                            Console.WriteLine($"Email error: {error.Description}");
-                        }
-                        return View(model);
-                    }
-
-                    // 3.2 Обновляем UserName
-                    var userNameResult = await _userManager.SetUserNameAsync(user, model.Email?.Trim());
-                    Console.WriteLine($"SetUserNameAsync result: {userNameResult.Succeeded}");
-
-                    if (!userNameResult.Succeeded)
-                    {
-                        foreach (var error in userNameResult.Errors)
-                        {
-                            Console.WriteLine($"UserName error: {error.Description}");
-                        }
-                    }
-
-                    // 3.3 Обновляем Security Stamp
-                    await _userManager.UpdateSecurityStampAsync(user);
-
-                    // 3.4 Явное сохранение через контекст
-                    _context.Entry(user).State = EntityState.Modified;
-                    var rowsAffected = await _context.SaveChangesAsync();
-                    Console.WriteLine($"DbContext saved: {rowsAffected} rows affected");
-                }
-
-                // 4. Обновляем аутентификацию
-                await _signInManager.RefreshSignInAsync(user);
-
-                // 5. Получаем свежие данные из базы
-                var freshUser = await _userManager.FindByIdAsync(user.Id);
+                // Получаем свежие данные через репозиторий
+                var freshUser = await _userRepository.FindByIdAsync(user.Id);
                 Console.WriteLine($"After update: FirstName='{freshUser?.FirstName}', Email='{freshUser?.Email}'");
 
                 TempData["SuccessMessage"] = "Профиль успешно обновлен";
@@ -159,11 +108,14 @@ namespace SocialNetworkWeb.Controllers
         [HttpGet]
         public async Task<IActionResult> Search(string searchTerm)
         {
-            var currentUserId = _userManager.GetUserId(User);
+            var currentUserId = _userManager.GetUserId(User); // Можно оставить это через UserManager
+            
+            var users = await _userRepository.SearchUsersWithFriendshipInfoAsync(searchTerm, currentUserId);
+            
             var model = new SearchViewModel
             {
                 SearchTerm = searchTerm,
-                Users = await _userRepository.SearchUsersAsync(searchTerm, currentUserId)
+                Users = users
             };
 
             return View(model);
@@ -173,16 +125,17 @@ namespace SocialNetworkWeb.Controllers
         public async Task<IActionResult> AddFriend(string friendId)
         {
             var currentUserId = _userManager.GetUserId(User);
+            
+            if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(friendId))
+            {
+                TempData["ErrorMessage"] = "Неверные параметры запроса";
+                return RedirectToAction("Search");
+            }
+            
             var result = await _userRepository.SendFriendRequestAsync(currentUserId, friendId);
 
-            if (result)
-            {
-                TempData["SuccessMessage"] = "Запрос на дружбу отправлен";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = "Не удалось отправить запрос на дружбу";
-            }
+            TempData[result ? "SuccessMessage" : "ErrorMessage"] = 
+                result ? "Запрос на дружбу отправлен" : "Не удалось отправить запрос на дружбу";
 
             return RedirectToAction("Search", new { searchTerm = Request.Query["searchTerm"] });
         }
@@ -191,16 +144,17 @@ namespace SocialNetworkWeb.Controllers
         public async Task<IActionResult> RemoveFriend(string friendId)
         {
             var currentUserId = _userManager.GetUserId(User);
+            
+            if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(friendId))
+            {
+                TempData["ErrorMessage"] = "Неверные параметры запроса";
+                return RedirectToAction("Search");
+            }
+            
             var result = await _userRepository.RemoveFriendAsync(currentUserId, friendId);
 
-            if (result)
-            {
-                TempData["SuccessMessage"] = "Пользователь удален из друзей";
-            }
-            else
-            {
-                TempData["ErrorMessage"] = "Не удалось удалить пользователя из друзей";
-            }
+            TempData[result ? "SuccessMessage" : "ErrorMessage"] = 
+                result ? "Пользователь удален из друзей" : "Не удалось удалить пользователя из друзей";
 
             return RedirectToAction("Search", new { searchTerm = Request.Query["searchTerm"] });
         }
@@ -209,31 +163,17 @@ namespace SocialNetworkWeb.Controllers
         public async Task<IActionResult> AcceptFriendRequest(string friendId)
         {
             var currentUserId = _userManager.GetUserId(User);
-
-            Console.WriteLine($"=== AcceptFriendRequest Debug ===");
-            Console.WriteLine($"Current User ID: {currentUserId}");
-            Console.WriteLine($"Friend ID: {friendId}");
-
-            try
+            
+            if (string.IsNullOrEmpty(currentUserId) || string.IsNullOrEmpty(friendId))
             {
-                var result = await _userRepository.AcceptFriendRequestAsync(currentUserId, friendId);
+                TempData["ErrorMessage"] = "Неверные параметры запроса";
+                return RedirectToAction("Search");
+            }
+            
+            var result = await _userRepository.AcceptFriendRequestAsync(currentUserId, friendId);
 
-                if (result)
-                {
-                    Console.WriteLine($"Friend request accepted successfully");
-                    TempData["SuccessMessage"] = "Запрос на дружбу принят";
-                }
-                else
-                {
-                    Console.WriteLine($"Failed to accept friend request");
-                    TempData["ErrorMessage"] = "Не удалось принять запрос на дружбу";
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Exception: {ex.Message}");
-                TempData["ErrorMessage"] = $"Ошибка: {ex.Message}";
-            }
+            TempData[result ? "SuccessMessage" : "ErrorMessage"] = 
+                result ? "Запрос на дружбу принят" : "Не удалось принять запрос на дружбу";
 
             return RedirectToAction("Search", new { searchTerm = Request.Query["searchTerm"] });
         }

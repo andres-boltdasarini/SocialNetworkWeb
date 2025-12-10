@@ -1,22 +1,36 @@
-// Services/IUserRepository.cs
+// IUserRepository.cs
+using System.Security.Claims;  // ← ДОБАВЬТЕ ЭТО!
 using SocialNetworkWeb.Models;
 using SocialNetworkWeb.ViewModels;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace SocialNetworkWeb.Services
 {
     public interface IUserRepository
     {
-        Task<ApplicationUser> GetUserByIdAsync(string userId);
-        Task<UserProfileViewModel> GetUserProfileAsync(string userId);
-        Task<bool> UpdateUserProfileAsync(string userId, UserProfileViewModel model);
-        Task<List<UserViewModel>> SearchUsersAsync(string searchTerm, string currentUserId); // �������� �� UserViewModel
+        // Существующие методы
+        Task<IEnumerable<ApplicationUser>> SearchUsersAsync(string searchTerm, string currentUserId);
         Task<bool> SendFriendRequestAsync(string fromUserId, string toUserId);
-        Task<bool> AcceptFriendRequestAsync(string userId, string friendId);
-        Task<bool> RemoveFriendAsync(string userId, string friendId);
-        Task<List<ApplicationUser>> GetUserFriendsAsync(string userId);
-        Task<bool> IsFriendAsync(string userId, string friendId);
-        Task<bool> HasPendingRequestAsync(string fromUserId, string toUserId);
+        Task<bool> RemoveFriendAsync(string currentUserId, string friendId);
+        Task<bool> AcceptFriendRequestAsync(string currentUserId, string friendId);
+        Task<ApplicationUser?> GetUserByIdAsync(string userId);
+        
+        // Для поиска с информацией о дружбе
+        Task<List<UserViewModel>> SearchUsersWithFriendshipInfoAsync(
+            string searchTerm, 
+            string currentUserId);
+        
+        // Новые методы для замены DbContext в контроллере
+        
+        // Получить текущего пользователя (аналог _userManager.GetUserAsync)
+        Task<ApplicationUser?> GetCurrentUserAsync(ClaimsPrincipal user);  // ← Теперь будет работать
+        
+        // Сохранить пользователя с поддержкой изменения email
+        Task<bool> SaveUserWithEmailUpdateAsync(ApplicationUser user, string newEmail);
+        
+        // Обновить аутентификацию
+        Task RefreshSignInAsync(ApplicationUser user);
+        
+        // Получить пользователя по ID (из UserManager)
+        Task<ApplicationUser?> FindByIdAsync(string userId);
     }
 }
